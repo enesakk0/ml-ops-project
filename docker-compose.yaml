@@ -1,0 +1,46 @@
+networks:
+  mlops-net:
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+
+services:
+  mysql:
+    restart: always
+    image: mysql:8.0.31
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    networks:
+      mlops-net:
+        ipv4_address: 172.18.0.3
+    env_file:
+      - .env
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_ROOT_HOST="%"
+    volumes:
+      - db:/var/lib/mysql
+      - "${PWD}/sql_scripts:/docker-entrypoint-initdb.d"
+    command: --authentication_policy=mysql_native_password
+
+  mlflow:
+    restart: always
+    build: ./mlflow
+    image: mlflow_server
+    container_name: mlflow_server
+    ports:
+      - "5001:5000"
+    networks:
+      mlops-net:
+        ipv4_address: 172.18.0.4
+    env_file:
+      - .env
+    command:
+      mlflow server --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE} --host 0.0.0.0
+
+volumes:
+  db:
